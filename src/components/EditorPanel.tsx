@@ -4,10 +4,12 @@ import { useRef, useCallback, useEffect } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { useCodeStore } from "@/stores/codeStore";
 import { useTimelineStore } from "@/stores/timelineStore";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function EditorPanel() {
   const { code, setCode } = useCodeStore();
   const { snapshots, currentStep } = useTimelineStore();
+  const { theme } = useTheme();
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const decorationsRef = useRef<string[]>([]);
 
@@ -63,7 +65,7 @@ export default function EditorPanel() {
           value={code}
           onChange={(val) => setCode(val || "")}
           onMount={handleMount}
-          theme="vs-dark"
+          theme={theme === "light" ? "vs" : "vs-dark"}
           options={{
             fontSize: 13,
             fontFamily: "var(--font-mono)",
