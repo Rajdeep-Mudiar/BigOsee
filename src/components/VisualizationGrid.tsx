@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import ReactGridLayout from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -108,6 +109,7 @@ export default function VisualizationGrid() {
 
   const arrays = useMemo(() => snapshot?.arrays ?? [], [snapshot]);
   const objects = useMemo(() => snapshot?.objects ?? [], [snapshot]);
+  const variables = useMemo(() => snapshot?.variables ?? [], [snapshot]);
 
   // which viz panels to spawn
   const vizPanels = useMemo((): VizType[] => {
@@ -216,24 +218,36 @@ export default function VisualizationGrid() {
     }
     switch (type) {
       case "sorting":
-        return arrays.length > 0 ? <SortingCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <SortingCard arrays={arrays} variables={variables} />
+        ) : null;
       case "stack":
-        return arrays.length > 0 ? <StackCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <StackCard arrays={arrays} variables={variables} />
+        ) : null;
       case "hashmap":
         return objects.length > 0 ? (
           <HashMapCard objects={objects} />
         ) : arrays.length > 0 ? (
-          <ArrayCard arrays={arrays} />
+          <ArrayCard arrays={arrays} variables={variables} />
         ) : null;
       case "tree":
-        return arrays.length > 0 ? <TreeCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <TreeCard arrays={arrays} variables={variables} />
+        ) : null;
       case "graph":
-        return arrays.length > 0 ? <GraphCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <GraphCard arrays={arrays} variables={variables} />
+        ) : null;
       case "dp":
-        return arrays.length > 0 ? <DPCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <DPCard arrays={arrays} variables={variables} />
+        ) : null;
       case "array":
       default:
-        return arrays.length > 0 ? <ArrayCard arrays={arrays} /> : null;
+        return arrays.length > 0 ? (
+          <ArrayCard arrays={arrays} variables={variables} />
+        ) : null;
     }
   }
 
@@ -300,29 +314,48 @@ export default function VisualizationGrid() {
             <PanelHeader title="Variables" />
             <div className="flex-1 px-3 py-2 overflow-y-auto">
               {snapshot && snapshot.variables.length > 0 ? (
-                <div className="space-y-1">
-                  {snapshot.variables.map((v) => (
-                    <div
-                      key={v.name}
-                      className="flex items-center justify-between text-xs font-mono"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-text-secondary">{v.name}</span>
-                        <span className="text-[9px] text-blue px-1 py-px bg-blue/10 rounded">
-                          {v.type}
-                        </span>
-                      </div>
-                      <span
-                        className={
-                          v.changed
-                            ? "text-accent font-medium"
-                            : "text-text-primary"
-                        }
+                <div className="space-y-0.5">
+                  <AnimatePresence mode="popLayout">
+                    {snapshot.variables.map((v) => (
+                      <motion.div
+                        key={v.name}
+                        layout
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 30,
+                        }}
+                        className={`flex items-center justify-between text-xs font-mono px-1.5 py-0.5 rounded-sm ${
+                          v.changed ? "bg-accent/10" : ""
+                        }`}
                       >
-                        {JSON.stringify(v.value)}
-                      </span>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          <span className="text-text-secondary">{v.name}</span>
+                          <span className="text-[9px] text-blue px-1 py-px bg-blue/10 rounded">
+                            {v.type}
+                          </span>
+                        </div>
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={`${v.name}-${JSON.stringify(v.value)}`}
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            transition={{ duration: 0.12 }}
+                            className={
+                              v.changed
+                                ? "text-accent font-semibold"
+                                : "text-text-primary"
+                            }
+                          >
+                            {JSON.stringify(v.value)}
+                          </motion.span>
+                        </AnimatePresence>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               ) : (
                 <span className="text-xs text-text-muted">No variables</span>

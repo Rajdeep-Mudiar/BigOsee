@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   IconReset,
   IconStepBackward,
@@ -48,6 +49,44 @@ export default function PlaybackControls() {
       // parse/runtime error
     }
   }, [code, activeQuestionId, setDetectedAlgorithm, setSnapshots]);
+
+  // Auto-run + start playing when a question is selected
+  const prevQuestionRef = useRef(activeQuestionId);
+  const autoPlayTimeoutRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (activeQuestionId && activeQuestionId !== prevQuestionRef.current) {
+      prevQuestionRef.current = activeQuestionId;
+      const t = setTimeout(() => {
+        handleRun();
+        // brief extra delay so snapshots settle before play starts
+        // track this timeout so we can cancel it on cleanup
+        if (autoPlayTimeoutRef.current !== null) {
+          clearTimeout(autoPlayTimeoutRef.current);
+        }
+        autoPlayTimeoutRef.current = window.setTimeout(() => {
+          // only start playback if it's not already playing to avoid accidental pauses
+          if (!isPlaying) {
+            togglePlay();
+          }
+        }, 200);
+      }, 80);
+      return () => {
+        clearTimeout(t);
+        if (autoPlayTimeoutRef.current !== null) {
+          clearTimeout(autoPlayTimeoutRef.current);
+          autoPlayTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [activeQuestionId, handleRun, togglePlay, isPlaying]);
+
+  // Auto-advance steps when playing
+  useEffect(() => {
+    if (!isPlaying) return;
+    const ms = Math.max(80, 700 / speed);
+    const id = setTimeout(stepForward, ms);
+    return () => clearTimeout(id);
+  }, [isPlaying, currentStep, speed, stepForward]);
 
   return (
     <div className="flex flex-col gap-3 shrink-0">
@@ -146,13 +185,25 @@ export default function PlaybackControls() {
 
       {/* Step description + console logs */}
       {snapshot && (
-        <div className="border border-border rounded-(--radius-panel) bg-surface overflow-hidden">
-          {/* description bar */}
-          <div className="px-3 py-2 border-b border-border">
-            <p className="text-[11px] font-mono text-accent truncate">
-              <span className="text-text-muted">L{snapshot.line}</span>{" "}
-              {snapshot.description}
-            </p>
+        <div className="border border-accent/30 rounded-(--radius-panel) bg-accent/5 overflow-hidden">
+          {/* animated description bar */}
+          <div className="px-3 py-2 border-b border-accent/20 overflow-hidden relative">
+            <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent rounded-l" />
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={snapshot.step}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="text-[11px] font-mono text-accent pl-2"
+              >
+                <span className="text-text-muted text-[10px]">
+                  L{snapshot.line}{" "}
+                </span>
+                {snapshot.description}
+              </motion.p>
+            </AnimatePresence>
           </div>
 
           {/* logs */}
