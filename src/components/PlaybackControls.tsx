@@ -52,17 +52,33 @@ export default function PlaybackControls() {
 
   // Auto-run + start playing when a question is selected
   const prevQuestionRef = useRef(activeQuestionId);
+  const autoPlayTimeoutRef = useRef<number | null>(null);
   useEffect(() => {
     if (activeQuestionId && activeQuestionId !== prevQuestionRef.current) {
       prevQuestionRef.current = activeQuestionId;
       const t = setTimeout(() => {
         handleRun();
         // brief extra delay so snapshots settle before play starts
-        setTimeout(() => togglePlay(), 200);
+        // track this timeout so we can cancel it on cleanup
+        if (autoPlayTimeoutRef.current !== null) {
+          clearTimeout(autoPlayTimeoutRef.current);
+        }
+        autoPlayTimeoutRef.current = window.setTimeout(() => {
+          // only start playback if it's not already playing to avoid accidental pauses
+          if (!isPlaying) {
+            togglePlay();
+          }
+        }, 200);
       }, 80);
-      return () => clearTimeout(t);
+      return () => {
+        clearTimeout(t);
+        if (autoPlayTimeoutRef.current !== null) {
+          clearTimeout(autoPlayTimeoutRef.current);
+          autoPlayTimeoutRef.current = null;
+        }
+      };
     }
-  }, [activeQuestionId, handleRun, togglePlay]);
+  }, [activeQuestionId, handleRun, togglePlay, isPlaying]);
 
   // Auto-advance steps when playing
   useEffect(() => {
