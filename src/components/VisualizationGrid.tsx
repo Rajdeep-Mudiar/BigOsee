@@ -20,6 +20,7 @@ import {
   MatrixCard,
 } from "./ArrayVisualizer";
 import { IconResetLayout } from "./icons";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 // question → category
 const Q_CAT: Record<string, string> = {};
@@ -71,7 +72,7 @@ const VIZ_META: Record<VizType, { label: string; color: string }> = {
   matrix: { label: "Matrix", color: "text-orange" },
 };
 
-// how many grid rows each viz type needs
+// how many grid rows each viz type needs (desktop only)
 const VIZ_ROWS: Record<VizType, number> = {
   array: 2,
   sorting: 3,
@@ -84,6 +85,19 @@ const VIZ_ROWS: Record<VizType, number> = {
   matrix: 3,
 };
 
+// minimum heights for stacked mobile cards
+const VIZ_MIN_H: Record<VizType, string> = {
+  array: "min-h-[150px]",
+  sorting: "min-h-[200px]",
+  stack: "min-h-[180px]",
+  hashmap: "min-h-[150px]",
+  tree: "min-h-[250px]",
+  graph: "min-h-[250px]",
+  dp: "min-h-[150px]",
+  "linked-list": "min-h-[200px]",
+  matrix: "min-h-[200px]",
+};
+
 function DragHandle() {
   return (
     <span className="drag-handle cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary text-xs select-none px-1 leading-none">
@@ -92,10 +106,18 @@ function DragHandle() {
   );
 }
 
-function PanelHeader({ title, color }: { title: string; color?: string }) {
+function PanelHeader({
+  title,
+  color,
+  showDrag = true,
+}: {
+  title: string;
+  color?: string;
+  showDrag?: boolean;
+}) {
   return (
     <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border shrink-0">
-      <DragHandle />
+      {showDrag && <DragHandle />}
       <span
         className={`text-[10px] font-semibold tracking-widest uppercase ${color || "text-text-muted"}`}
       >
@@ -105,10 +127,114 @@ function PanelHeader({ title, color }: { title: string; color?: string }) {
   );
 }
 
+/** Variables panel content — shared between desktop grid and mobile stack */
+function VariablesContent({
+  snapshot,
+}: {
+  snapshot: import("@/engine/types").Snapshot | undefined;
+}) {
+  return (
+    <div className="flex-1 px-3 py-2 overflow-y-auto">
+      {snapshot && snapshot.variables.length > 0 ? (
+        <div className="space-y-0.5">
+          <AnimatePresence mode="popLayout">
+            {snapshot.variables.map((v) => (
+              <motion.div
+                key={v.name}
+                layout
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 30,
+                }}
+                className={`flex items-center justify-between text-xs font-mono px-1.5 py-0.5 rounded-sm ${
+                  v.changed ? "bg-accent/10" : ""
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-text-secondary truncate">{v.name}</span>
+                  <span className="text-[9px] text-blue px-1 py-px bg-blue/10 rounded shrink-0">
+                    {v.type}
+                  </span>
+                </div>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={`${v.name}-${JSON.stringify(v.value)}`}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.12 }}
+                    className={`truncate ml-2 ${
+                      v.changed
+                        ? "text-accent font-semibold"
+                        : "text-text-primary"
+                    }`}
+                  >
+                    {JSON.stringify(v.value)}
+                  </motion.span>
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <span className="text-xs text-text-muted">No variables</span>
+      )}
+    </div>
+  );
+}
+
+/** Call Stack panel content — shared between desktop grid and mobile stack */
+function CallStackContent({
+  snapshot,
+}: {
+  snapshot: import("@/engine/types").Snapshot | undefined;
+}) {
+  return (
+    <div className="flex-1 px-3 py-2 overflow-y-auto">
+      {snapshot?.callStack && snapshot.callStack.length > 0 ? (
+        <div className="space-y-0.5">
+          {snapshot.callStack.map((entry, i) => {
+            const [name, line] = entry.split(":");
+            const isActive = i === snapshot.callStack.length - 1;
+            return (
+              <div
+                key={i}
+                className={`flex items-center justify-between text-xs font-mono px-2 py-1 rounded-md ${
+                  isActive
+                    ? "bg-accent/15 text-accent"
+                    : "text-text-secondary"
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? "bg-accent" : "bg-text-muted"}`}
+                  />
+                  <span>{name}()</span>
+                </div>
+                {line && line !== "0" && (
+                  <span className="text-text-muted text-[10px]">
+                    :{line}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <span className="text-xs text-text-muted">No call stack</span>
+      )}
+    </div>
+  );
+}
+
 export default function VisualizationGrid() {
   const [width, setWidth] = useState(500);
   const [height, setHeight] = useState(500);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { isDesktop } = useBreakpoint();
 
   const { snapshots, currentStep } = useTimelineStore();
   const { activeQuestionId } = useCodeStore();
@@ -130,7 +256,7 @@ export default function VisualizationGrid() {
   const showExtraHashmap =
     hasData && objects.length > 0 && !vizPanels.includes("hashmap");
 
-  // build layout: viz panels stacked above, vars+stats at bottom
+  // build layout: viz panels stacked above, vars+stats at bottom (desktop only)
   const layout = useMemo(() => {
     const items: {
       i: string;
@@ -182,9 +308,10 @@ export default function VisualizationGrid() {
   // track which keys exist for the grid
   const panelKeys = useMemo(() => new Set(layout.map((l) => l.i)), [layout]);
 
-  // resize — observe the grid container for accurate width
+  // resize — observe the grid container for accurate width (desktop only)
   const gridRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!isDesktop) return;
     const el = gridRef.current ?? containerRef.current;
     if (!el) return;
     const obs = new ResizeObserver((entries) => {
@@ -195,7 +322,7 @@ export default function VisualizationGrid() {
     });
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [isDesktop]);
 
   const totalRows = Math.max(
     2,
@@ -276,6 +403,54 @@ export default function VisualizationGrid() {
     }
   }
 
+  // ─── Mobile / Tablet: simple stacked cards (no drag/resize grid) ───
+  if (!isDesktop) {
+    return (
+      <div ref={containerRef} className="flex flex-col gap-2 sm:gap-3">
+        {/* Dynamic viz panels */}
+        {vizPanels.map((type) => {
+          const meta = VIZ_META[type];
+          const minH = VIZ_MIN_H[type];
+          return (
+            <div
+              key={`viz-${type}`}
+              className={`rounded-(--radius-panel) border border-border bg-dark overflow-hidden flex flex-col ${minH}`}
+            >
+              <PanelHeader title={meta.label} color={meta.color} showDrag={false} />
+              <div className="flex-1 overflow-auto">{renderViz(type)}</div>
+            </div>
+          );
+        })}
+
+        {/* Extra hashmap */}
+        {showExtraHashmap && (
+          <div className="rounded-(--radius-panel) border border-border bg-dark overflow-hidden flex flex-col min-h-37.5">
+            <PanelHeader title="HashMap" color="text-green" showDrag={false} />
+            <div className="flex-1 overflow-auto">
+              <HashMapCard objects={objects} />
+            </div>
+          </div>
+        )}
+
+        {/* Variables + Call Stack: side-by-side on tablet, stacked on mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          {/* Variables */}
+          <div className="rounded-(--radius-panel) border border-border bg-surface overflow-hidden flex flex-col min-h-25">
+            <PanelHeader title="Variables" showDrag={false} />
+            <VariablesContent snapshot={snapshot} />
+          </div>
+
+          {/* Call Stack */}
+          <div className="rounded-(--radius-panel) border border-border bg-surface overflow-hidden flex flex-col min-h-25">
+            <PanelHeader title="Call Stack" showDrag={false} />
+            <CallStackContent snapshot={snapshot} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Desktop: original react-grid-layout with drag/resize ───
   return (
     <div ref={containerRef} className="flex flex-col h-full overflow-hidden">
       <div className="flex justify-end px-1 py-0.5 shrink-0">
@@ -338,55 +513,7 @@ export default function VisualizationGrid() {
             className="rgl-panel w-full h-full rounded-(--radius-panel) border border-border bg-surface overflow-hidden flex flex-col"
           >
             <PanelHeader title="Variables" />
-            <div className="flex-1 px-3 py-2 overflow-y-auto">
-              {snapshot && snapshot.variables.length > 0 ? (
-                <div className="space-y-0.5">
-                  <AnimatePresence mode="popLayout">
-                    {snapshot.variables.map((v) => (
-                      <motion.div
-                        key={v.name}
-                        layout
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 400,
-                          damping: 30,
-                        }}
-                        className={`flex items-center justify-between text-xs font-mono px-1.5 py-0.5 rounded-sm ${
-                          v.changed ? "bg-accent/10" : ""
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-text-secondary">{v.name}</span>
-                          <span className="text-[9px] text-blue px-1 py-px bg-blue/10 rounded">
-                            {v.type}
-                          </span>
-                        </div>
-                        <AnimatePresence mode="wait">
-                          <motion.span
-                            key={`${v.name}-${JSON.stringify(v.value)}`}
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 4 }}
-                            transition={{ duration: 0.12 }}
-                            className={
-                              v.changed
-                                ? "text-accent font-semibold"
-                                : "text-text-primary"
-                            }
-                          >
-                            {JSON.stringify(v.value)}
-                          </motion.span>
-                        </AnimatePresence>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <span className="text-xs text-text-muted">No variables</span>
-              )}
-            </div>
+            <VariablesContent snapshot={snapshot} />
           </div>
 
           {/* Call Stack — always visible */}
@@ -395,40 +522,7 @@ export default function VisualizationGrid() {
             className="rgl-panel w-full h-full rounded-(--radius-panel) border border-border bg-surface overflow-hidden flex flex-col"
           >
             <PanelHeader title="Call Stack" />
-            <div className="flex-1 px-3 py-2 overflow-y-auto">
-              {snapshot?.callStack && snapshot.callStack.length > 0 ? (
-                <div className="space-y-0.5">
-                  {snapshot.callStack.map((entry, i) => {
-                    const [name, line] = entry.split(":");
-                    const isActive = i === snapshot.callStack.length - 1;
-                    return (
-                      <div
-                        key={i}
-                        className={`flex items-center justify-between text-xs font-mono px-2 py-1 rounded-md ${
-                          isActive
-                            ? "bg-accent/15 text-accent"
-                            : "text-text-secondary"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-accent" : "bg-text-muted"}`}
-                          />
-                          <span>{name}()</span>
-                        </div>
-                        {line && line !== "0" && (
-                          <span className="text-text-muted text-[10px]">
-                            :{line}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <span className="text-xs text-text-muted">No call stack</span>
-              )}
-            </div>
+            <CallStackContent snapshot={snapshot} />
           </div>
         </ReactGridLayout>
       </div>

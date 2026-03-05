@@ -11,6 +11,7 @@ import {
 } from "./icons";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { useCodeStore } from "@/stores/codeStore";
+import { useUIStore } from "@/stores/uiStore";
 import { executeCode } from "@/engine/interpreter";
 import { detectAlgorithm, detectByQuestionId } from "@/engine/detector";
 import {
@@ -277,13 +278,23 @@ export default function PlaybackControls() {
     return () => clearTimeout(id);
   }, [isPlaying, currentStep, speed, stepForward]);
 
+  // ─── External run trigger (from mobile Code tab's Run button) ───
+  const runRequested = useUIStore((s) => s.runRequested);
+  const prevRunRequested = useRef(runRequested);
+  useEffect(() => {
+    if (runRequested > 0 && runRequested !== prevRunRequested.current) {
+      prevRunRequested.current = runRequested;
+      handleRun();
+    }
+  }, [runRequested, handleRun]);
+
   return (
-    <div className="flex flex-col gap-3 shrink-0">
-      {/* Run button with loading spinner */}
+    <div className="flex flex-col gap-2 sm:gap-3 shrink-0">
+      {/* Run button with loading spinner — larger tap target on mobile */}
       <button
         onClick={handleRun}
         disabled={isExecuting}
-        className="w-full py-2.5 text-sm font-semibold bg-accent text-black rounded-(--radius-panel) hover:bg-accent-hover active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+        className="w-full py-3 lg:py-2.5 text-sm font-semibold bg-accent text-black rounded-(--radius-panel) hover:bg-accent-hover active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {isExecuting ? (
           <span className="flex items-center justify-center gap-2">
@@ -297,7 +308,7 @@ export default function PlaybackControls() {
 
       {/* Native Python execution badge */}
       {detectedInputLanguage === "python" && !wasTranspiled && snapshots.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green/10 border border-green/30 rounded-(--radius-panel) text-[10px] font-mono text-green">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-green/10 border border-green/30 rounded-(--radius-panel) text-[10px] font-mono text-green">
           <span className="font-bold shrink-0">🐍 Python</span>
           <span className="text-green/70">
             executed natively via Pyodide (real CPython in browser)
@@ -307,7 +318,7 @@ export default function PlaybackControls() {
 
       {/* Transpilation info badge (for C/C++/Java/TS) */}
       {wasTranspiled && detectedInputLanguage && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue/10 border border-blue/30 rounded-(--radius-panel) text-[10px] font-mono text-blue">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue/10 border border-blue/30 rounded-(--radius-panel) text-[10px] font-mono text-blue">
           <span className="font-bold shrink-0">
             {LANGUAGE_LABELS[detectedInputLanguage]}
           </span>
@@ -319,12 +330,12 @@ export default function PlaybackControls() {
 
       {/* Error banner */}
       {runError && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-red/10 border border-red/30 rounded-(--radius-panel) text-[11px] font-mono text-red">
+        <div className="flex items-start gap-2 px-2.5 sm:px-3 py-2 bg-red/10 border border-red/30 rounded-(--radius-panel) text-[11px] font-mono text-red">
           <span className="shrink-0 font-bold mt-px">Error:</span>
           <span className="break-all leading-snug flex-1">{runError}</span>
           <button
             onClick={() => setRunError(null)}
-            className="ml-auto shrink-0 text-red/60 hover:text-red transition-colors"
+            className="ml-auto shrink-0 text-red/60 hover:text-red transition-colors p-1"
             aria-label="Dismiss"
           >
             ✕
@@ -332,7 +343,7 @@ export default function PlaybackControls() {
         </div>
       )}
 
-      {/* Step counter + playback */}
+      {/* Step counter + playback — touch-friendly button sizes */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
           <span>Step</span>
@@ -342,11 +353,11 @@ export default function PlaybackControls() {
           <span className="text-text-muted ml-1">{pct}%</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <button
             onClick={() => setCurrentStep(0)}
             disabled={totalSteps === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+            className="w-9 h-9 lg:w-7 lg:h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
             title="Reset"
           >
             <IconReset size={14} />
@@ -355,7 +366,7 @@ export default function PlaybackControls() {
           <button
             onClick={stepBackward}
             disabled={currentStep <= 0}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+            className="w-9 h-9 lg:w-7 lg:h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
             title="Step Backward"
           >
             <IconStepBackward size={14} />
@@ -364,7 +375,7 @@ export default function PlaybackControls() {
           <button
             onClick={togglePlay}
             disabled={totalSteps === 0}
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${
+            className={`w-10 h-10 lg:w-8 lg:h-8 flex items-center justify-center rounded-full transition-all disabled:opacity-30 ${
               isPlaying
                 ? "bg-accent text-black"
                 : "bg-surface-hover text-text-primary hover:bg-accent hover:text-black"
@@ -377,7 +388,7 @@ export default function PlaybackControls() {
           <button
             onClick={stepForward}
             disabled={currentStep >= totalSteps - 1}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
+            className="w-9 h-9 lg:w-7 lg:h-7 flex items-center justify-center rounded-full text-text-muted hover:text-text-primary disabled:opacity-30 transition-colors"
             title="Step Forward"
           >
             <IconStepForward size={14} />
@@ -385,9 +396,9 @@ export default function PlaybackControls() {
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — taller on mobile for easier touch */}
       <div
-        className="w-full h-1 bg-border rounded-full overflow-hidden cursor-pointer"
+        className="w-full h-2 lg:h-1 bg-border rounded-full overflow-hidden cursor-pointer"
         onClick={(e) => {
           if (totalSteps === 0) return;
           const rect = e.currentTarget.getBoundingClientRect();
@@ -401,7 +412,7 @@ export default function PlaybackControls() {
         />
       </div>
 
-      {/* Speed */}
+      {/* Speed — larger slider thumb on mobile */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-text-muted">Speed</span>
         <input
@@ -411,7 +422,7 @@ export default function PlaybackControls() {
           step="0.25"
           value={speed}
           onChange={(e) => setSpeed(parseFloat(e.target.value))}
-          className="flex-1 h-1 appearance-none bg-border rounded-full cursor-pointer accent-accent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
+          className="flex-1 h-1 appearance-none bg-border rounded-full cursor-pointer accent-accent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 lg:[&::-webkit-slider-thumb]:w-3.5 lg:[&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
         />
         <span className="text-[10px] text-text-muted font-mono w-5 text-right">
           {speed}x
@@ -422,7 +433,7 @@ export default function PlaybackControls() {
       {snapshot && (
         <div className="border border-accent/30 rounded-(--radius-panel) bg-accent/5 overflow-hidden">
           {/* animated description bar */}
-          <div className="px-3 py-2 border-b border-accent/20 overflow-hidden relative">
+          <div className="px-2.5 sm:px-3 py-2 border-b border-accent/20 overflow-hidden relative">
             <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-accent rounded-l" />
             <AnimatePresence mode="wait">
               <motion.div
@@ -436,7 +447,7 @@ export default function PlaybackControls() {
                 <span className="text-[9px] font-mono text-dark bg-accent px-1.5 py-0.5 rounded font-bold shrink-0 mt-px">
                   L{snapshot.line}
                 </span>
-                <p className="text-[11px] font-mono text-accent leading-snug">
+                <p className="text-[11px] font-mono text-accent leading-snug wrap-break-word">
                   {snapshot.description}
                 </p>
               </motion.div>
@@ -444,7 +455,7 @@ export default function PlaybackControls() {
           </div>
 
           {/* comparisons + swaps stats */}
-          <div className="flex items-center gap-3 px-3 py-1.5 border-b border-accent/10">
+          <div className="flex items-center gap-3 px-2.5 sm:px-3 py-1.5 border-b border-accent/10">
             <span className="text-[9px] font-mono text-text-muted">
               Comparisons:{" "}
               <span className="text-accent font-semibold">
@@ -459,11 +470,11 @@ export default function PlaybackControls() {
 
           {/* logs */}
           {logs.length > 0 && (
-            <div className="px-3 py-2 space-y-0.5">
+            <div className="px-2.5 sm:px-3 py-2 space-y-0.5">
               {logs.slice(-3).map((log, i) => (
                 <p
                   key={i}
-                  className="text-[10px] font-mono text-green truncate"
+                  className="text-[10px] font-mono text-green break-all"
                 >
                   &gt; {log}
                 </p>

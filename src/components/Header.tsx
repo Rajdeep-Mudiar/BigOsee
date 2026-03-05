@@ -2,6 +2,8 @@
 
 import { IconLogo } from "./icons";
 import { useTheme } from "./ThemeProvider";
+import { useUIStore } from "@/stores/uiStore";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 /* Sun icon for light mode */
 function IconSun({ size = 16 }: { size?: number }) {
@@ -47,14 +49,47 @@ function IconMoon({ size = 16 }: { size?: number }) {
   );
 }
 
+/* Hamburger menu icon for mobile */
+function IconMenu({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
 export default function Header() {
   const { theme, toggle } = useTheme();
   const isLight = theme === "light";
+  const { isDesktop } = useBreakpoint();
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
 
   return (
-    <header className="flex items-center justify-between h-12 px-4 bg-surface border-b border-border shrink-0">
+    <header className="flex items-center justify-between h-10 lg:h-12 px-3 lg:px-4 bg-surface border-b border-border shrink-0">
       <div className="flex items-center gap-2.5">
-        <IconLogo size={22} />
+        {/* Hamburger — visible on mobile/tablet only */}
+        {!isDesktop && (
+          <button
+            onClick={toggleSidebar}
+            className="flex items-center justify-center w-8 h-8 -ml-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <IconMenu size={18} />
+          </button>
+        )}
+
+        <IconLogo size={isDesktop ? 22 : 20} />
         <span className="text-sm font-semibold tracking-tight text-text-primary">
           BigOSee
         </span>
@@ -64,20 +99,23 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3 text-[11px] text-text-muted">
-          <div className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-surface-hover border border-border rounded text-text-secondary text-[10px] font-mono">
-              Space
-            </kbd>
-            <span>Play</span>
+        {/* Keyboard shortcuts — hidden on mobile/tablet */}
+        {isDesktop && (
+          <div className="flex items-center gap-3 text-[11px] text-text-muted">
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 bg-surface-hover border border-border rounded text-text-secondary text-[10px] font-mono">
+                Space
+              </kbd>
+              <span>Play</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 bg-surface-hover border border-border rounded text-text-secondary text-[10px] font-mono">
+                &larr; &rarr;
+              </kbd>
+              <span>Step</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 bg-surface-hover border border-border rounded text-text-secondary text-[10px] font-mono">
-              ← →
-            </kbd>
-            <span>Step</span>
-          </div>
-        </div>
+        )}
 
         {/* ── Theme toggle ── */}
         <button

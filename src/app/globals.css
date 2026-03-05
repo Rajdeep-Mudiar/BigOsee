@@ -81,6 +81,18 @@ html[data-theme="light"] {
       color 0.25s ease;
   }
 
+  /* Mobile / Tablet: allow vertical scrolling */
+  @media (max-width: 1023px) {
+    html,
+    body {
+      overflow: auto;
+      overflow-x: hidden;
+      height: auto;
+      min-height: 100vh;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
   /* Smooth bg/border/color transitions for panels (does NOT touch transform/opacity so Framer stays intact) */
   .rgl-panel,
   header,
